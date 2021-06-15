@@ -12,41 +12,15 @@ void radial::advect_diffuse(double dt, double alpha0){
        using implicit finite difference method. */
     int ngrid = (int)Tmd.size();
     double dr = dist[1] - dist[0];
-    double div0 = 5*2,     dt0 = dt/div0;
-    double div1 = 5*2,     dt1 = dt/div1;
-    double div2 = 200*2,   dt2 = dt/div2;
+    double div0 = 100,     dt0 = dt/div0;
     
     /*
       step 1. calculate viscosity, advection velocity, and element abundance
     */
-    tensor1d<double> nu(0.0, ngrid), vd(0.0, ngrid), vg(0.0, ngrid), vs(0.0, ngrid);
-    Matrix<double>   iso16(0.0, ngrid, iso_gasd.mcols());  /* element with 16 */
-    Matrix<double>   iso18(0.0, ngrid, iso_gasd.mcols());  /* element with 18 */
+    tensor1d<double> nu(0.0, ngrid); 
     for (int i=0; i<(int)nu.size(); i++){
         double cs2 = kB*Tmd[i]/(mu*mH);
         nu[i] = alpha0*cs2/Omeg[i];
-        
-        /* advection occurs due to radial drift 
-           ... calculate drift speed according to fragmentation barrier size */
-        double St_frag = Q0/(alpha0*cs2);
-        // if (alpha0 <= 4.0e-4){ St_frag *= 0.1; }
-        double rho = sig[i]/(sqrt(2.0*pi)*sqrt(cs2)/Omeg[i]);
-        double s0 = St_frag/Omeg[i] * rho/rhom * sqrt(cs2);
-        
-        /* bouncing barrier for reference
-           ... it does not have a direct effect on the maximum grain size */
-        // double St_boun = sqrt(sqrt(12*C0*(rhom*rhom)/(pi*alpha0*cs2*cube(sig[i]))));
-        // double s0 = St_boun/Omeg[i] * rho/rhom * sqrt(cs2);
-        cout << i << "\t" << s0 << "\t" << St_frag << endl;
-        vd[i] = drift_speed(i, s0);
-        
-        /* 
-           isotope
-         */
-        tensor1d<double> vgasd = ngas.rowtensor(i) + ndust.rowtensor(i);
-        tensor1d<double> el = massm.transpose()*vgasd;
-        for (int j=0; j<(int)el.size(); j++){ iso16[i][j] = el[j] * (1. - iso_gasd[i][j]); } 
-        for (int j=0; j<(int)el.size(); j++){ iso18[i][j] = el[j] *       iso_gasd[i][j];  }
     }
     
     /*
@@ -69,12 +43,20 @@ void radial::advect_diffuse(double dt, double alpha0){
     }
     /* boundary condition: zero flux at the outer boundary */
     // C[ngrid-1] = -1.0/dr * (6.0*(dt1/dr)*sqrt(dist[ngrid-2]/dist[ngrid-1])*nu[ngrid-2]);
-        
-    /*tensor1d<double> tot0(0.0, ndust.mcols());
-    for (int i=0; i<(int)sig.size(); i++){
-        for (int j=0; j<ndust.mcols(); j++){ tot0[j] += dist[i]*(ngas[i][j]+ndust[i][j]); }
-        }*/
 
+    for (int j=0; j<div0; j++){
+	solve_tridiag(A,  B,  C,  sig);
+	// solve_Crank_Nicolson(A, B, C, sig);
+    }
+    
+
+    return;
+
+    /* ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- */
+    // after this line to describe the adv.-diff. of each gas/dust species
+    // not needed during the first stage.
+    /* ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- */
+    
     /* 
        step 3.
        3-1: solve for evolution
@@ -82,6 +64,10 @@ void radial::advect_diffuse(double dt, double alpha0){
        3-3: create sig_i evolution matrix
        3-4: solve for sig_i evolution
      */
+    double div1 = 5*2,     dt1 = dt/div1;
+    double div2 = 200*2,   dt2 = dt/div2;
+    tensor1d<double> vd(0.0, ngrid), vg(0.0, ngrid), vs(0.0, ngrid);
+    
     tensor1d<double> sig_old = sig;
     for (int k=0; k<(int)div0; k++){
         
@@ -198,29 +184,9 @@ void radial::advect_diffuse(double dt, double alpha0){
         }
     }
     
-    /*
-      step 4.
-      solve for isotopic composition
-      
-      el1 shows each element of `0`, where el2 `1`.
-      `solve_tridiag` solves for diffusion of each element separately.
-      `iso_gasd` stores the new istopic ratio after diffusion
-    */
-#pragma omp parallel for schedule(dynamic,1)
-    for (int j=0; j<iso16.mcols(); j++){ /* j: no. of elements */
-        tensor1d<double> el1 = iso16.coltensor(j);
-        tensor1d<double> el2 = iso18.coltensor(j);
-        
-        for (int k=0; k<(int)div1; k++){ solve_tridiag(A, B, C, el1); }
-        for (int k=0; k<(int)div1; k++){ solve_tridiag(A, B, C, el2); }
-        
-        for (int i=0; i<(int)el1.size(); i++){
-            iso_gasd[i][j] = el2[i]/(el1[i]+el2[i]);
-        }
-    }
     
     /* 
-       step 5.
+       step 4.
        re-calculate surface density
     */
     for (int i=0; i<(int)sig.size(); i++){

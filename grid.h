@@ -7,6 +7,7 @@
 #include "./GibbsFE_minimization/CGgibbsmin.h"
 #include "./tensor.h"
 #include <ctime>
+#include <omp.h>
 
 class radial{
  public:
@@ -15,25 +16,14 @@ class radial{
     /* model set-up */
     void set_grain_size_distribution(double, double, double, double);
     void set_init_density(double, double, double, string, string);
-    void read_file(string);
     
-    void calc_thermal_Gibbs_struc(double);
     void calc_thermal_struc(double);
     
     /* model evolution */
     void advect_diffuse(double, double);
-    void migrator_drift(double);
-    void migrator_equili(string, double, double);
-    void dust_growth(int, double, double);
-    
-    /* planetesimal formation */
-    void turbulent_concentration(double, double);
-    void streaming_instability(double);
-    void pebble_accretion(double, double);
     
     /* model output */
     void record(string, double);
-    void track(string, double, int);
     
  private:
     /* disk physical properties */
