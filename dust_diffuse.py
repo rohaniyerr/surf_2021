@@ -29,13 +29,14 @@ def calc_dust_evol(sigma, vdust, dt):
     for i in range(1,n):
         Cd[i] =  (dt2/(dr*dr) * 0.5*(nds(nu,i-1) + nds(nu,i))/sigma[i-1]) / dist[i]
 
-        if (vn[i]>0){ Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt2/dr;  }
-        else        { }
+        if (vn[i]>0):
+            Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt2/dr
 
 
     sigma_d = solve_Crank_Nicolson(Ad, Bd, Cd, sigma_d)
-
-    
+    # end of calc_dust_evol
+   
+# Solve ODE using Crank-Nicolson method
 def solve_Crank_Nicolson(Ao, Bo, Co, S):
     theta = 0.5
     
@@ -61,7 +62,6 @@ def solve_Crank_Nicolson(Ao, Bo, Co, S):
     S2 = solve_tridiag(Ai, Bi, Ci, S1)
 
     return S2
-}
 
 def solve_tridiag(Ao, Bo, Co, S):
     A = Ao
