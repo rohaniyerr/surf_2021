@@ -1,7 +1,11 @@
 def nds(nu, i):
     return nu[i]*dist[i]*sigma[i]
 
-def calc_dust_evol(sigma, vdust, dt):
+def calc_dust_evol(sigma, sigma_d, vn, dt):
+    # sigma:   gas  density
+    # sigma_d: dust density
+    # vn:      dust advection velocity
+    # dt:      timestep (in sec)
     n  = len(sigma)
     Ad = np.empty(n)
     Bd = np.empty(n)
