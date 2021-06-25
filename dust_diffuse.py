@@ -1,64 +1,71 @@
 import numpy as np
+import sys
 
 def nds(nu, dist, sigma, i):
     return nu[i]*dist[i]*sigma[i]
 
 def calc_dust_evol(sigma, sigma_d, nu, vn, dist, dt):
-    # sigma:   gas  density
-    # sigma_d: dust density
-    # vn:      dust advection velocity
-    # dt:      timestep (in sec)
     n  = len(sigma)
     Ad = np.empty(n)
     Bd = np.empty(n)
     Cd = np.empty(n)
-    
-    dr = dist[1] - dist[0]
-    
-    # A(i,i)S(i,j+1) = S(i,j)     ... Ad(i)
-    for i in range(n):
-        if(i < n-1):
-            Ad[i] = (-dt/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i) + 0.5*nds(nu,dist,sigma,i+1))/sigma[i]) / dist[i]
-        else:
-            Ad[i] = (-dt/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + 0.5*nds(nu,dist,sigma,i)) / sigma[i]) /dist[i]
 
+    div = 10
+    dt2 = dt/div
+    dr  = dist[1] - dist[0]
 
-        # add advection term, considering upwind scheme
-#         print(i)
-#         print(len(vn))
-        if (vn[i]<0):
-            Ad[i] += vn[i]*dt/dr
-            
-        if (i<(n-2)):
-            if(vn[i+1]):
-                Ad[i] -= vn[i+1]*dt/dr
+    for j in range(div):
+        # A(i,i)S(i,j+1) = S(i,j)     ... Ad(i)
+        for i in range(n):
+            Ad[i] = (-dt2/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/sigma[i]) / dist[i]
 
-    # A(i+1,i)S(i+1,j+1) = S(i,j) ... Bd(i)
-    for i in range(n-1):
-        Bd[i] =  (dt/(dr*dr) * 0.5*(nds(nu,dist,sigma,i) + nds(nu,dist,sigma,i+1))/sigma[i+1]) / dist[i]
+            # add advection term, considering upwind scheme
+            if (vn[i]<0):
+                Ad[i] += vn[i]*dt2/dr
+                
+            if (i<(n-1)):
+                if (vn[i+1] > 0):
+                    Ad[i] -= vn[i+1]*dt2/dr
+
+        # A(i+1,i)S(i+1,j+1) = S(i,j) ... Bd(i)
+        for i in range(n-1):
+            Bd[i] =  (dt2/(dr*dr) * 0.5*(nds(nu,dist,sigma,i) + nds(nu,dist,sigma,i+1))/sigma[i+1]) / dist[i]
         
-        if (vn[i+1] < 0):
-            Bd[i] -= (dist[i+1]/dist[i]) * vn[i+1]*dt/dr
+            if (vn[i+1] < 0):
+                Bd[i] -= (dist[i+1]/dist[i]) * vn[i+1]*dt2/dr
+        Bd[-1] = 0.0
+            
+        # A(i-1,i)S(i-1,j+1) = S(i,j) ... Cd(i)
+        for i in range(1,n):
+            Cd[i] =  dt2/(dr*dr) * 0.5*(nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/ (sigma[i-1]*dist[i])
 
-    # A(i-1,i)S(i-1,j+1) = S(i,j) ... Cd(i)
-    for i in range(1,n):
-        Cd[i] =  (dt/(dr*dr) * 0.5*(nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/sigma[i-1]) / dist[i]
+            if (vn[i]>0):
+                Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt2/dr
 
-        if (vn[i]>0):
-            Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt/dr
+        #print("B", sigma_d[-5:])
+        #print("b", sigma[-5:])
+        #print("Az", Ad[-5:])
+        #print("Bz", Bd[-5:])
+        #print("Cz", Cd[-5:])
+        sigma_d = solve_Crank_Nicolson(Ad, Bd, Cd, sigma_d)
+        # repeat for div times
+        #print("A", sigma_d[-5:])
+        #print("a", sigma[-5:])
+        #print(nu[-5:])
+        #print()
 
-
-    sigma_d = solve_Crank_Nicolson(Ad, Bd, Cd, sigma_d)
+        if (np.isnan(sigma_d[-1])):
+            sys.exit()
+        
+    # return
     return sigma_d
-    # end of calc_dust_evol
-   
-# Solve ODE using Crank-Nicolson method
+    
 def solve_Crank_Nicolson(Ao, Bo, Co, S):
     theta = 0.5
     
     # explicit side
     n = len(S)
-    S1 = np.copy(S)
+    S1 = np.empty(n)
     for i in range(n):
         S1[i] = Co[i]*theta*S[max(0,i-1)] + (1+Ao[i]*theta)*S[i] + Bo[i]*theta*S[min(i+1, n-1)]
     
@@ -76,6 +83,7 @@ def solve_Crank_Nicolson(Ao, Bo, Co, S):
     
     # solve tridiag
     S2 = solve_tridiag(Ai, Bi, Ci, S1)
+
     return S2
 
 def solve_tridiag(Ao, Bo, Co, S):
@@ -107,5 +115,5 @@ def solve_tridiag(Ao, Bo, Co, S):
     for j in range(imax-2, -1, -1):
         # last row ... A[j-1] Sn[j-1] = Sb[j-1] */
         S[j] -= S[j+1] * B[j]
-    
+
     return S
