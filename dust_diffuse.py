@@ -1,7 +1,7 @@
-def nds(nu, i):
+def nds(nu, dist, sigma, i):
     return nu[i]*dist[i]*sigma[i]
 
-def calc_dust_evol(sigma, sigma_d, vn, dt):
+def calc_dust_evol(sigma, sigma_d, vn, dist, dt):
     # sigma:   gas  density
     # sigma_d: dust density
     # vn:      dust advection velocity
@@ -11,30 +11,32 @@ def calc_dust_evol(sigma, sigma_d, vn, dt):
     Bd = np.empty(n)
     Cd = np.empty(n)
     
+    dr = dist[1] - dist[0]
+    
     # A(i,i)S(i,j+1) = S(i,j)     ... Ad(i)
     for i in range(n):
-        Ad[i] = (-dt2/(dr*dr) * (0.5*nds(nu,i-1) + nds(nu,i) + 0.5*nds(nu,i+1))/sigma[i]) / dist[i]
+        Ad[i] = (-dt/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i) + 0.5*nds(nu,dist,sigma,i+1))/sigma[i]) / dist[i]
 
         # add advection term, considering upwind scheme
         if (vn[i]<0):
-            Ad[i] += vn[i]*dt2/dr
+            Ad[i] += vn[i]*dt/dr
             
         if (vn[i+1]>0 and i<(ngrid-1)):
-            Ad[i] -= vn[i+1]*dt2/dr
+            Ad[i] -= vn[i+1]*dt/dr
 
     # A(i+1,i)S(i+1,j+1) = S(i,j) ... Bd(i)
     for i in range(n-1):
-        Bd[i] =  (dt2/(dr*dr) * 0.5*(nds(nu,i) + nds(nu,i+1))/sigma[i+1]) / dist[i]
+        Bd[i] =  (dt/(dr*dr) * 0.5*(nds(nu,dist,sigma,i) + nds(nu,dist,sigma,i+1))/sigma[i+1]) / dist[i]
         
         if (vn[i+1] < 0):
-            Bd[i] -= (dist[i+1]/dist[i]) * vn[i+1]*dt2/dr
+            Bd[i] -= (dist[i+1]/dist[i]) * vn[i+1]*dt/dr
 
     # A(i-1,i)S(i-1,j+1) = S(i,j) ... Cd(i)
     for i in range(1,n):
-        Cd[i] =  (dt2/(dr*dr) * 0.5*(nds(nu,i-1) + nds(nu,i))/sigma[i-1]) / dist[i]
+        Cd[i] =  (dt/(dr*dr) * 0.5*(nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/sigma[i-1]) / dist[i]
 
         if (vn[i]>0):
-            Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt2/dr
+            Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt/dr
 
 
     sigma_d = solve_Crank_Nicolson(Ad, Bd, Cd, sigma_d)
