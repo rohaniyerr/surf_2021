@@ -17,7 +17,10 @@ def calc_dust_evol(sigma, sigma_d, nu, vn, dist, dt):
     for j in range(div):
         # A(i,i)S(i,j+1) = S(i,j)     ... Ad(i)
         for i in range(n):
-            Ad[i] = (-dt2/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/sigma[i]) / dist[i]
+            if (i<(n-1)):
+                Ad[i] = (-dt2/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i) +0.5*nds(nu,dist,sigma,i+1))/sigma[i]) / dist[i]
+            else:
+                Ad[i] = (-dt2/(dr*dr) * (0.5*nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/sigma[i]) / dist[i]
 
             # add advection term, considering upwind scheme
             if (vn[i]<0):
