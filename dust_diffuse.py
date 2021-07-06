@@ -5,25 +5,32 @@ def nds(nu, dist, sigma, i):
     return nu[i]*dist[i]*sigma[i]
 
 
-def calc_gas_vel():
+def calc_gas_vel(nu, sigma, dist, dist_stg):
     dr = dist[1] - dist[0]
     vg = np.zeros(len(sigma))
     
     for i in range(len(dist_stg)):
-        vg[i] = 3/np.sqrt(dist_stg[i]) * (nu[i+1]*sigma[i+1]*sqrt(dist[i+1]) - nu[i]*sigma[i]*sqrt(dist[i]))
+        vg[i] = 3/np.sqrt(dist_stg[i]) * (nu[i+1]*sigma[i+1]*np.sqrt(dist[i+1]) - nu[i]*sigma[i]*np.sqrt(dist[i]))
         vg[i] /= (-dr * (sigma[i]+sigma[i+1])*0.5 )
 
     return vg
     
-def calc_dust_evol(sigma, sigma_d, nu, vn, dist, dt):
+def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
     n  = len(sigma)
     Ad = np.empty(n)
     Bd = np.empty(n)
     Cd = np.empty(n)
 
-    div = 10
-    dt2 = dt/div
     dr  = dist[1] - dist[0]
+    if (abs(np.max(vn)) > 0):
+        dt1 = abs(dr/np.max(vn))
+    else:
+        dt1 = dt/2
+    
+    div = int(dt/dt1)
+    dt2 = dt/(div+2)
+    if (div > 2):
+        print(div)
 
     for j in range(div):
         # A(i,i)S(i,j+1) = S(i,j)     ... Ad(i)
@@ -87,9 +94,8 @@ def solve_Crank_Nicolson(Ao, Bo, Co, S):
     Ai = np.empty(n)
     Bi = np.empty(n)
     Ci = np.empty(n)
-    
-    for i in range(n):
-        Ai[i] = 1.0 - Ao[i]*(1-theta)
+
+    Ai = [1.0 - Ao[i]*(1-theta) for i in range(n)]
     for i in range(n-1):
         Bi[i] =     - Bo[i]*(1-theta)
     for i in range(1,n):
