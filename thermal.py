@@ -1,11 +1,14 @@
 import numpy as np
-
+import numba
 
 
 mH = 1.673534e-27
 mu = 2.2 # mean molar mass in disk
 kB = 1.380649e-23 #boltzmann constant
 sb = 5.6704e-8
+G = 6.6738 * 10**-11 #gravitational constant
+Ms = 1.9886 * 10**30 #solar mass
+
 
 def calc_thermal_struc(sigma_gas, sigma_dust, alphas, Omega):
     T = np.empty(len(sigma_gas))
@@ -23,6 +26,7 @@ def calc_thermal_struc(sigma_gas, sigma_dust, alphas, Omega):
     cs2 = np.square(cs)
     return (cs2, T, Pmd)
 
+@numba.njit
 def calc_middiskT(dgratio, sigma_gas, alpha, Omega):
     C0 = 27.0/128*alpha*kB/(mu*mH*sb)*np.square(sigma_gas)*Omega
     
@@ -49,10 +53,12 @@ def calc_middiskT(dgratio, sigma_gas, alpha, Omega):
     kappa = calc_opacity(TA, dgratio)
     return TA
 
+@numba.njit
 def calc_dT(T, dgratio_in, C0):
     kpa = calc_opacity(T, dgratio_in)
     return pow(kpa*C0, 1.0/3) - T
     
+@numba.njit
 def calc_opacity(T, dgratio_in):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
     kpa  = 0.5
@@ -62,10 +68,13 @@ def calc_opacity(T, dgratio_in):
     # This part should be modified later.
     Tcor = 1800
     Tfor = 1400
+    Tcalc = 1700
     if (T > Tcor):
         dgratio = 0.
+    elif (T > Tcalc):
+        dgratio = dgratio_in * (Tcor-T)/(Tcor-Tcalc)
     elif (T > Tfor):
-        dgratio = dgratio_in * (Tcor-T)/(Tcor-Tfor)
+        dgratio = dgratio_in * (Tcalc-T)/(Tcalc-Tfor)
     else:
         dgratio = dgratio_in
     
