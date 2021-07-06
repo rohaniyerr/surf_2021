@@ -31,6 +31,8 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
     dt2 = dt/(div+2)
     if (div > 2):
         print(div)
+    if(dt2 >= dr**2/nu.all()):
+        raise OverflowError('Convergence Criteria Not Met.')
 
     for j in range(div):
         # A(i,i)S(i,j+1) = S(i,j)     ... Ad(i)
