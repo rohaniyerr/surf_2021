@@ -10,8 +10,9 @@ G = 6.6738 * 10**-11 #gravitational constant
 Ms = 1.9886 * 10**30 #solar mass
 
 Tcor = 1800
+Tcalc_start = 1700
+Tcalc_stop = 1500
 Tfor = 1400
-Tcalc = 1700
 
 cor_ratio = .1
 calc_ratio = .1
@@ -22,27 +23,33 @@ def evaporate_dust(sigma_dust, sigma_evap, temp):
     if (temp > Tcor): #temp > 1800, everything evaporates
         sigma_evap = sigma_evap + sigma_dust
         sigma_dust = 0
-    elif (temp > Tcalc): #1700 < temp < 1800, calcium and forsterite evaporate
-        sigma_evap = sigma_evap + (calc_ratio + for_ratio) * sigma_dust*(Tcor-temp)/(Tcor-Tcalc)
-        sigma_dust = cor_ratio*sigma_dust*(Tcor-temp)/(Tcor-Tcalc)
-    elif(temp > Tfor):  # 1400 < temp < 1700, only forsterite evaporates
-        sigma_evap = sigma_evap + for_ratio * sigma_dust * (Tcalc-temp)/(Tcalc-Tfor)
-        sigma_dust = (calc_ratio + cor_ratio) * sigma_dust * (Tcalc-temp)/(Tcalc-Tfor)
-    return sigma_evap 
-
-
-@numba.njit
-def condense_gas(sigma_evap, sigma_dust, temp):
-    if (temp <= Tfor): #temp < 1400, everything condenses
+    elif (temp > Tcalc_start): #1700 < temp < 1800, calcium and forsterite evaporate, corundum condenses
+        sigma_evap = cor_ratio * (sigma_dust + sigma_evap) * (temp - Tcalc_start)/(Tcor - Tcalc_start) + (for_ratio + calc_ratio)*(sigma_dust+sigma_evap)
+        sigma_dust = cor_ratio * (sigma_dust + sigma_evap) * (Tcor - temp)/(Tcor - Tcalc_start) 
+    elif(temp > Tcalc_stop):  # 1500 < temp < 1700, forsterite evaporates, corundum condense
+        sigma_evap = (cor_ratio + calc_ratio) * (sigma_dust + sigma_evap) * (temp - Tcalc_stop)/(Tcalc_start - Tcalc_stop) + (for_ratio) * (sigma_dust+sigma_evap)
+        sigma_dust = (cor_ratio + calc_ratio) * (sigma_dust + sigma_evap) * (Tcalc_start - temp)/(Tcalc_start - Tcalc_stop) + (cor_ratio) * (sigma_dust+sigma_evap)
+    elif(temp > Tfor):  # 1400 < temp < 1500, forstertite evaporates, calcium and corundum condense
+        sigma_evap = (calc_ratio + cor_ratio) * (sigma_dust + sigma_evap) * (temp - Tfor)/(Tcalc_stop - Tfor) + (for_ratio) * (sigma_dust + sigma_evap)
+        sigma_dust = (calc_ratio + cor_ratio) * (sigma_dust + sigma_evap) * (Tcalc_stop - temp)/(Tcalc_stop - Tfor) + (calc_ratio + cor_ratio)*(sigma_dust+sigma_evap)
+    else: #temp < 1400, everything condenses
         sigma_dust = sigma_dust + sigma_evap
         sigma_evap = 0
-    elif (temp <= Tcalc): # 1400 < temp < 1700, calcium and corundum condense
-        sigma_dust = sigma_dust + (calc_ratio + cor_ratio) * sigma_evap * (Tcalc-temp)/(Tcalc-Tfor)
-        sigma_evap = for_ratio * sigma_evap * (Tcalc-temp)/(Tcalc-Tfor)
-    elif (temp <= Tcor): # 1700 < temp < 1800, only corundum condenses
-        sigma_dust = sigma_dust + cor_ratio * sigma_evap * (Tcor-temp)/(Tcor-Tcalc)
-        sigma_evap = (calc_ratio + for_ratio) * sigma_evap * (Tcor-temp)/(Tcor-Tcalc) 
-    return sigma_dust
+    return (sigma_dust, sigma_evap)
+
+
+# @numba.njit
+# def condense_gas(sigma_evap, sigma_dust, temp):
+#     if (temp <= Tfor): #temp < 1400, everything condenses
+#         sigma_dust = sigma_dust + sigma_evap
+#         sigma_evap = 0
+#     elif (temp <= Tcalc): # 1400 < temp < 1700, calcium and corundum condense
+#         sigma_dust = sigma_dust + (calc_ratio + cor_ratio) * sigma_evap * (Tcalc-temp)/(Tcalc-Tfor)
+#         sigma_evap = for_ratio * sigma_evap * (Tcalc-temp)/(Tcalc-Tfor)
+#     elif (temp <= Tcor): # 1700 < temp < 1800, only corundum condenses
+#         sigma_dust = sigma_dust + cor_ratio * sigma_evap * (Tcor-temp)/(Tcor-Tcalc)
+#         sigma_evap = (calc_ratio + for_ratio) * sigma_evap * (Tcor-temp)/(Tcor-Tcalc) 
+#     return sigma_dust
 
 
 def calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega):
@@ -98,20 +105,20 @@ def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
     kpa  = 0.5
     kgas = 1.6e-3
-    sigma_evap = evaporate_dust(sigma_dust, sigma_evap, T)
-    sigma_dust = condense_gas(sigma_evap, sigma_dust, T)
-    dgratio_in = (sigma_evap + sigma_dust) / sigma_gas
+    sigma_evap, sigma_dust = evaporate_dust(sigma_dust, sigma_evap, T)
+    dgratio_in = sigma_dust/sigma_gas
+    return max(kpa*dgratio_in, kgas)
 
-    # Tcor and Tfor correspond to the evaporation temperature of corundum (Al2O3) and forsterite (MgSiO4)
-    # This part should be modified later.
-    if (T > Tcor):
-        dgratio = 0.
-    elif (T > Tcalc):
-        dgratio = dgratio_in * (Tcor-T)/(Tcor-Tcalc)
-    elif (T > Tfor):
-        dgratio = dgratio_in * (Tcalc-T)/(Tcalc-Tfor)
-    else:
-        dgratio = dgratio_in
+#     # Tcor and Tfor correspond to the evaporation temperature of corundum (Al2O3) and forsterite (MgSiO4)
+#     # This part should be modified later.
+#     if (T > Tcor):
+#         dgratio = 0.
+#     elif (T > Tcalc):
+#         dgratio = dgratio_in * (Tcor-T)/(Tcor-Tcalc)
+#     elif (T > Tfor):
+#         dgratio = dgratio_in * (Tcalc-T)/(Tcalc-Tfor)
+#     else:
+#         dgratio = dgratio_in
     
-    return max(kpa*dgratio, kgas)
+    
 
