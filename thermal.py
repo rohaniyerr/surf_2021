@@ -19,7 +19,7 @@ calc_ratio = .1
 for_ratio = .8
 
 @numba.njit
-def evaporate_dust(sigma_dust, sigma_evap, temp):
+def evap_cond(sigma_dust, sigma_evap, temp):
     if (temp > Tcor): #temp > 1800, everything evaporates
         sigma_evap = sigma_evap + sigma_dust
         sigma_dust = 0
@@ -27,29 +27,15 @@ def evaporate_dust(sigma_dust, sigma_evap, temp):
         sigma_evap = cor_ratio * (sigma_dust + sigma_evap) * (temp - Tcalc_start)/(Tcor - Tcalc_start) + (for_ratio + calc_ratio)*(sigma_dust+sigma_evap)
         sigma_dust = cor_ratio * (sigma_dust + sigma_evap) * (Tcor - temp)/(Tcor - Tcalc_start) 
     elif(temp > Tcalc_stop):  # 1500 < temp < 1700, forsterite evaporates, corundum condense
-        sigma_evap = (cor_ratio + calc_ratio) * (sigma_dust + sigma_evap) * (temp - Tcalc_stop)/(Tcalc_start - Tcalc_stop) + (for_ratio) * (sigma_dust+sigma_evap)
-        sigma_dust = (cor_ratio + calc_ratio) * (sigma_dust + sigma_evap) * (Tcalc_start - temp)/(Tcalc_start - Tcalc_stop) + (cor_ratio) * (sigma_dust+sigma_evap)
+        sigma_evap = (calc_ratio) * (sigma_dust + sigma_evap) * (temp - Tcalc_stop)/(Tcalc_start - Tcalc_stop) + (for_ratio) * (sigma_dust+sigma_evap)
+        sigma_dust = (calc_ratio) * (sigma_dust + sigma_evap) * (Tcalc_start - temp)/(Tcalc_start - Tcalc_stop) + (cor_ratio) * (sigma_dust+sigma_evap)
     elif(temp > Tfor):  # 1400 < temp < 1500, forstertite evaporates, calcium and corundum condense
-        sigma_evap = (calc_ratio + cor_ratio) * (sigma_dust + sigma_evap) * (temp - Tfor)/(Tcalc_stop - Tfor) + (for_ratio) * (sigma_dust + sigma_evap)
-        sigma_dust = (calc_ratio + cor_ratio) * (sigma_dust + sigma_evap) * (Tcalc_stop - temp)/(Tcalc_stop - Tfor) + (calc_ratio + cor_ratio)*(sigma_dust+sigma_evap)
+        sigma_evap = (for_ratio) * (sigma_dust + sigma_evap) * (temp - Tfor)/(Tcalc_stop - Tfor)
+        sigma_dust = (for_ratio) * (sigma_dust + sigma_evap) * (Tcalc_stop - temp)/(Tcalc_stop - Tfor) + (calc_ratio + cor_ratio)*(sigma_dust+sigma_evap)
     else: #temp < 1400, everything condenses
         sigma_dust = sigma_dust + sigma_evap
         sigma_evap = 0
     return (sigma_dust, sigma_evap)
-
-
-# @numba.njit
-# def condense_gas(sigma_evap, sigma_dust, temp):
-#     if (temp <= Tfor): #temp < 1400, everything condenses
-#         sigma_dust = sigma_dust + sigma_evap
-#         sigma_evap = 0
-#     elif (temp <= Tcalc): # 1400 < temp < 1700, calcium and corundum condense
-#         sigma_dust = sigma_dust + (calc_ratio + cor_ratio) * sigma_evap * (Tcalc-temp)/(Tcalc-Tfor)
-#         sigma_evap = for_ratio * sigma_evap * (Tcalc-temp)/(Tcalc-Tfor)
-#     elif (temp <= Tcor): # 1700 < temp < 1800, only corundum condenses
-#         sigma_dust = sigma_dust + cor_ratio * sigma_evap * (Tcor-temp)/(Tcor-Tcalc)
-#         sigma_evap = (calc_ratio + for_ratio) * sigma_evap * (Tcor-temp)/(Tcor-Tcalc) 
-#     return sigma_dust
 
 
 def calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega):
@@ -105,7 +91,7 @@ def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
     kpa  = 0.5
     kgas = 1.6e-3
-    sigma_evap, sigma_dust = evaporate_dust(sigma_dust, sigma_evap, T)
+    sigma_evap, sigma_dust = evap_cond(sigma_dust, sigma_evap, T)
     dgratio_in = sigma_dust/sigma_gas
     return max(kpa*dgratio_in, kgas)
 
