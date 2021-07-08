@@ -19,22 +19,35 @@ calc_ratio = .1
 for_ratio = .8
 
 @numba.njit
-def evap_cond(sigma_dust, sigma_evap, temp):
+def alpha_MRI_hydro(T):
+    phase_change = 1400
+    if(T >= phase_change):
+        alpha = 1e-3 + 9e-3*min((T-phase_change)/100, 1.)
+    else:
+        alpha = 1e-3
+
+    return alpha
+
+@numba.njit
+def evap_cond(sigma_d_in, sigma_ev_in, temp):
+    minit = sigma_d_in + sigma_ev_in
+    
     if (temp > Tcor): #temp > 1800, everything evaporates
-        sigma_evap = sigma_evap + sigma_dust
+        sigma_evap = minit
         sigma_dust = 0
     elif (temp > Tcalc_start): #1700 < temp < 1800, calcium and forsterite evaporate, corundum condenses
-        sigma_evap = cor_ratio * (sigma_dust + sigma_evap) * (temp - Tcalc_start)/(Tcor - Tcalc_start) + (for_ratio + calc_ratio)*(sigma_dust+sigma_evap)
-        sigma_dust = cor_ratio * (sigma_dust + sigma_evap) * (Tcor - temp)/(Tcor - Tcalc_start) 
+        sigma_evap = cor_ratio * minit * (temp - Tcalc_start)/(Tcor - Tcalc_start) + (for_ratio + calc_ratio)*minit
+        sigma_dust = minit - sigma_evap
     elif(temp > Tcalc_stop):  # 1500 < temp < 1700, forsterite evaporates, corundum condense
-        sigma_evap = (calc_ratio) * (sigma_dust + sigma_evap) * (temp - Tcalc_stop)/(Tcalc_start - Tcalc_stop) + (for_ratio) * (sigma_dust+sigma_evap)
-        sigma_dust = (calc_ratio) * (sigma_dust + sigma_evap) * (Tcalc_start - temp)/(Tcalc_start - Tcalc_stop) + (cor_ratio) * (sigma_dust+sigma_evap)
+        sigma_evap = (calc_ratio) * minit * (temp-Tcalc_stop)/(Tcalc_start-Tcalc_stop) + (for_ratio) * minit
+        sigma_dust = minit - sigma_evap
     elif(temp > Tfor):  # 1400 < temp < 1500, forstertite evaporates, calcium and corundum condense
-        sigma_evap = (for_ratio) * (sigma_dust + sigma_evap) * (temp - Tfor)/(Tcalc_stop - Tfor)
-        sigma_dust = (for_ratio) * (sigma_dust + sigma_evap) * (Tcalc_stop - temp)/(Tcalc_stop - Tfor) + (calc_ratio + cor_ratio)*(sigma_dust+sigma_evap)
+        sigma_evap = (for_ratio) * minit * (temp - Tfor)/(Tcalc_stop - Tfor)
+        sigma_dust = minit - sigma_evap
     else: #temp < 1400, everything condenses
-        sigma_dust = sigma_dust + sigma_evap
+        sigma_dust = minit
         sigma_evap = 0
+
     return (sigma_dust, sigma_evap)
 
 
@@ -55,7 +68,7 @@ def calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega):
 
 @numba.njit
 def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
-    C0 = 27.0/128*alpha*kB/(mu*mH*sb)*np.square(sigma_gas)*Omega
+    C0 = 27.0/128*kB/(mu*mH*sb)*np.square(sigma_gas)*Omega  # no alpha here
     
     # In a more realistic code, dust amount should be a function of Tmid (mid-disk temperature)
     # Here, we adopt a simplified function as described in calc_opacity, but should be modified in the future.
@@ -83,7 +96,7 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
 
 @numba.njit
 def calc_dT(T, C0, sigma_dust, sigma_evap, sigma_gas):
-    kpa = calc_opacity(T, sigma_dust, sigma_evap, sigma_gas)
+    kpa = calc_opacity(T, sigma_dust, sigma_evap, sigma_gas) * alpha_MRI_hydro(T)
     return pow(kpa*C0, 1.0/3) - T
     
 @numba.njit
@@ -91,8 +104,10 @@ def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
     kpa  = 0.5
     kgas = 1.6e-3
-    sigma_evap, sigma_dust = evap_cond(sigma_dust, sigma_evap, T)
+    sigma_dust, sigma_evap = evap_cond(sigma_dust, sigma_evap, T)
     dgratio_in = sigma_dust/sigma_gas
+
+    #print(dgratio_in, sigma_dust+sigma_evap)
     return max(kpa*dgratio_in, kgas)
 
 #     # Tcor and Tfor correspond to the evaporation temperature of corundum (Al2O3) and forsterite (MgSiO4)
