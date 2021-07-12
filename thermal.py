@@ -28,15 +28,15 @@ def alpha_MRI_hydro(T):
 
     return alpha
 
-# @numba.njit
+@numba.njit
 def evap_cond(sigma_dust, sigma_evap, temp):
     minit = sigma_dust + sigma_evap
     cor_idx = 0
     calc_idx = 1
     for_idx = 2
     if (temp > Tcor): #temp > 1800, everything evaporates
-        sigma_evap = sigma_evap + sigma_dust
-        sigma_dust = 0
+        sigma_evap[:] = sigma_evap[:] + sigma_dust[:]
+        sigma_dust[:] = 0
     elif (temp > Tcalc_start): #1700 < temp < 1800, calcium and forsterite evaporate, corundum condenses
         sigma_evap[cor_idx] =  minit[cor_idx] * (temp - Tcalc_start)/(Tcor - Tcalc_start)
         sigma_dust[cor_idx] =  minit[cor_idx] * (Tcor - temp)/(Tcor - Tcalc_start)
@@ -59,11 +59,11 @@ def evap_cond(sigma_dust, sigma_evap, temp):
         sigma_dust[calc_idx] = minit[calc_idx]
         sigma_evap[calc_idx] = 0
     else: #temp < 1400, everything condenses
-        sigma_dust = sigma_dust + sigma_evap
-        sigma_evap = 0
+        sigma_dust[:] = sigma_dust[:] + sigma_evap[:]
+        sigma_evap[:] = 0
     return (sigma_dust, sigma_evap)
 
-
+@numba.njit
 def calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega):
     n = len(sigma_gas)
     T = np.empty(n)
@@ -82,7 +82,7 @@ def calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega):
     cs2 = np.square(cs)
     return (cs2, T, Pmd, sigma_dust_fin, sigma_evap_fin)
 
-# @numba.njit
+@numba.njit
 def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
     C0 = 27.0/128*kB/(mu*mH*sb)*np.square(sigma_gas)*Omega
     
@@ -107,16 +107,15 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
             f0 = fA
 
     _, _, kappa = calc_opacity(TA, sigma_dust, sigma_evap, sigma_gas)
-#     print(type(sigma_evap_fin))
     return (sigma_dust, sigma_evap, TA)
 
-# @numba.njit
+@numba.njit
 def calc_dT(T, C0, sigma_dust, sigma_evap, sigma_gas):
     _, _, kpa = calc_opacity(T, sigma_dust, sigma_evap, sigma_gas)
     kpa = kpa * alpha_MRI_hydro(T)
     return pow(kpa*C0, 1.0/3) - T
     
-# @numba.njit
+@numba.njit
 def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
     kpa  = 0.5
