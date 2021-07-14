@@ -89,12 +89,12 @@ distance = rout - rin #distance from inner radius to outer radius
 
 
 #Temporal discretization
-max_years = 10
+max_years = 1
 dyr = .1
 dt = dyr * yrs2sec #timestep
 final_time = max_years*yrs2sec + 1 #total diffusion time in seconds
 t_save_interval = 1 #every ten years
-t_plot = [0,8]
+t_plot = [0,1]
 
 
 # In[5]:
@@ -194,9 +194,9 @@ def make_alpha_grid(cont):
 def update_alpha(alphas, T):
     for idx, temp in enumerate(T):
         if(temp >= phase_change):
-            alphas[idx] = alpha2 + 9e-3*min((temp-phase_change)/100, 1.)
-        else:
             alphas[idx] = alpha2
+        else:
+            alphas[idx] = alpha1
     return alphas
 
 
@@ -232,7 +232,7 @@ def calc_init_params():
         sigma_dust[i] = sigma_gas[i] * 0.005
         X[i] = 2 * np.sqrt(dist[i])
         Omega[i] = np.sqrt(G * Ms / (dist[i] ** 3))
-    cs2, T, P = calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap_init, alphas, Omega)
+    cs2, T, P, sigma_dust, sigma_evap = calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap_init, alphas, Omega)
     calc_stag_grid(T)
     alphas = update_alpha(alphas, T)
     nu = alphas*cs2/Omega
@@ -240,7 +240,7 @@ def calc_init_params():
     v_dust = calc_dust_vel(v_gas, P)
     D = 12 * nu / (X ** 2)
     f = (1.5 * X * sigma_gas)
-    return (sigma_dust, sigma_gas, v_dust, v_gas, cs2, nu, D, f, alphas)
+    return (sigma_dust, sigma_gas, sigma_evap, v_dust, v_gas, cs2, nu, D, f, alphas)
 
 
 # In[ ]:
@@ -321,6 +321,39 @@ def save2dir(**alpha_run):
 # In[19]:
 
 
+# @numba.njit
+# def evaporate(sigma_dust, T):
+#     sigma_evap = np.zeros(n)
+#     for idx, temp in enumerate(T):
+#         if (temp > Tcor): #temp > 1800, everything evaporates
+#             sigma_evap[idx] = sigma_evap[idx] + sigma_dust[idx]
+#             sigma_dust[idx] = 0
+#         elif (temp > Tcalc): #1700 < temp < 1800, calcium and forsterite evaporate
+#             sigma_evap[idx] = sigma_evap[idx] + (calc_ratio + for_ratio) * sigma_dust[idx]*(Tcor-temp)/(Tcor-Tcalc)
+#             sigma_dust[idx] = cor_ratio*sigma_dust[idx]*(Tcor-temp)/(Tcor-Tcalc)
+#         elif(temp > Tfor):  # 1400 < temp < 1700, only forsterite evaporates
+#             sigma_evap[idx] = sigma_evap[idx] + for_ratio * sigma_dust[idx] * (Tcalc-temp)/(Tcalc-Tfor)
+#             sigma_dust[idx] = (calc_ratio + cor_ratio) * sigma_dust[idx] * (Tcalc-temp)/(Tcalc-Tfor)
+#     return sigma_evap 
+
+
+# In[20]:
+
+
+# @numba.njit
+# def condense(sigma_evap, sigma_dust, T):
+#     for idx, temp in enumerate(T):
+#         if (temp <= Tfor): #temp < 1400, everything condenses
+#             sigma_dust[idx] = sigma_dust[idx] + sigma_evap[idx]
+#             sigma_evap[idx] = 0
+#         elif (temp <= Tcalc): # 1400 < temp < 1700, calcium and corundum condense
+#             sigma_dust[idx] = sigma_dust[idx] + (calc_ratio + cor_ratio) * sigma_evap[idx] * (Tcalc-temp)/(Tcalc-Tfor)
+#             sigma_evap[idx] = for_ratio * sigma_evap[idx] * (Tcalc-temp)/(Tcalc-Tfor)
+#         elif (temp <= Tcor): # 1700 < temp < 1800, only corundum condenses
+#             sigma_dust[idx] = sigma_dust[idx] + cor_ratio * sigma_evap[idx] * (Tcor-temp)/(Tcor-Tcalc)
+#             sigma_evap[idx] = (calc_ratio + for_ratio) * sigma_evap[idx] * (Tcor-temp)/(Tcor-Tcalc) 
+#     return sigma_dust
+
 
 # In[21]:
 
@@ -334,10 +367,10 @@ def update_nu(cs):
 
 #Time Evolution Main
 
-sigma_dust, sigma_gas, v_dust, v_gas, cs2, nu, D, f, alphas = calc_init_params()
+sigma_dust, sigma_gas, sigma_evap, v_dust, v_gas, cs2, nu, D, f, alphas = calc_init_params()
 output_dir, filename = save2dir()
 
-sigma_evap = np.zeros(n)
+# sigma_evap = np.zeros(n)
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -345,16 +378,12 @@ for i in range(len(t)):
     f_new, sigma_gas = calc_gas_evol(f, dt)
     sigma_dust = calc_evol(sigma_gas, sigma_dust, nu, v_dust, dist, dt)
     sigma_evap = calc_evol(sigma_gas, sigma_evap, nu, v_gas, dist, dt)
-    cs2, T, P = calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega)
-
-    for j in range(len(sigma_gas)):
-        (tmp1, tmp2) = evap_cond(sigma_dust[j], sigma_evap[j], T[j])
-        sigma_dust[j] = tmp1
-        sigma_evap[j] = tmp2
-        
+    cs2, T, P, sigma_dust, sigma_evap = calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega)
+#     for j in range(len(sigma_gas)):
+#         (tmp1, tmp2) = evap_cond(sigma_dust[j], sigma_evap[j], T[j])
+#         sigma_dust[j] = tmp1
+#         sigma_evap[j] = tmp2
     alphas = update_alpha(alphas, T)
-#     sigma_evap = evaporate(sigma_dust, T)
-#     sigma_dust = condense(sigma_evap, sigma_dust, T)
     nu = update_nu(cs2)
     calc_stag_grid(T)
     v_dust = calc_dust_vel(v_gas, P)
@@ -370,9 +399,8 @@ for i in range(len(t)):
 
 
 def plot():
-    #get_ipython().run_line_magic('matplotlib', '')
+    get_ipython().run_line_magic('matplotlib', '')
     for time in t_plot:
-        print(time)
         df = pd.read_csv('output/disk_' + str(int(time)) + '.txt', delimiter=',', header=None)
         sigma_gas_plot = df[1].to_numpy().astype(np.float)
         sigma_dust_plot = df[2].to_numpy().astype(np.float)
