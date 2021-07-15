@@ -25,12 +25,12 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
     if (abs(np.max(vn)) > 0):
         dt1 = abs(dr/np.max(vn))
     else:
-        dt1 = dt/2
+        dt1 = dt/3
     
     div = int(dt/dt1)
     dt2 = dt/(div+2)
-    if (div > 2):
-        print(div)
+    if (div > 5):
+        print("div", div)
     if(dt2 >= dr**2/nu.all()):
         raise OverflowError('Convergence Criteria Not Met.')
 
@@ -64,7 +64,8 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
 
             if (vn[i]>0):
                 Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt2/dr
-
+        Cd[0] = 0.
+        
         #print("B", sigma_d[-5:])
         #print("b", sigma[-5:])
         #print("Az", Ad[-5:])
@@ -102,6 +103,8 @@ def solve_Crank_Nicolson(Ao, Bo, Co, S):
         Bi[i] =     - Bo[i]*(1-theta)
     for i in range(1,n):
         Ci[i] =     - Co[i]*(1-theta)
+    Bi[-1] = 0.
+    Ci[0] = 0.
     
     # solve tridiag
     S2 = solve_tridiag(Ai, Bi, Ci, S1)
