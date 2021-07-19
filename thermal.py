@@ -24,6 +24,10 @@ def alpha_MRI_hydro(T):
         alpha = 1e-3 + 9e-3*min((T-phase_change)/100, 1.)
     else:
         alpha = 1e-3
+<<<<<<< HEAD
+    
+=======
+>>>>>>> 7edb2cd81e5aeefb1eff7ec64b460f26f6f0f595
     return alpha
 
 @numba.njit
@@ -87,15 +91,18 @@ def evap_cond_pebble(sigma_pebble, sigma_evap, temp):
         sigma_pebble[calc_idx] =  sigma_pebble[calc_idx] * (Tcalc_start - temp)/(Tcalc_start - Tcalc_stop)
         sigma_evap[calc_idx] =  (minit[calc_idx] - sigma_pebble[calc_idx])
         
-        sigma_pebble[for_idx] = minit[for_idx]
-        sigma_evap[for_idx] = 0
+        sigma_pebble[for_idx] = 0
+        sigma_evap[for_idx]   = minit[for_idx]
     elif(temp > Tfor):  # 1400 < temp < 1500, forstertite evaporates, calcium and corundum condense
         sigma_pebble[for_idx] =  sigma_pebble[for_idx] * (Tcalc_stop - temp)/(Tcalc_stop - Tfor)
         sigma_evap[for_idx] =  (minit[for_idx] - sigma_pebble[for_idx])
 
+<<<<<<< HEAD
+=======
 #     else: #temp < 1400, everything condenses
 #         sigma_pebble[:] = sigma_pebble[:] + sigma_evap[:]
 #         sigma_evap[:] = 0
+>>>>>>> 7edb2cd81e5aeefb1eff7ec64b460f26f6f0f595
     return (sigma_pebble, sigma_evap)
 
 @numba.njit
@@ -104,13 +111,14 @@ def calc_thermal_struc(sigma_gas, sigma_dust, sigma_pebble, sigma_evap, alphas, 
     T = np.empty(n)
     Pmd = np.empty(n)
     cs = np.empty(n)
+    kpa = np.empty(n)
     
 #     sigma_dust_fin = np.zeros((3,n))
 #     sigma_evap_fin = np.zeros((3,n))
 #     sigma_pebble_fin = np.zeros((3,n))
     for i in range(n): # solve Tmid according to the dust amonut
         # update T_mid and P_mid
-        sigma_dust[:,i], sigma_evap[:,i], T[i] = calc_middiskT(sigma_gas[i], sigma_dust[:,i], sigma_evap[:,i], alphas[i], Omega[i])
+        sigma_dust[:,i], sigma_evap[:,i], T[i], kpa[i] = calc_middiskT(sigma_gas[i], sigma_dust[:,i], sigma_evap[:,i], alphas[i], Omega[i])
         sigma_pebble[:,i], sigma_evap[:,i] = evap_cond_pebble(sigma_pebble[:,i], sigma_evap[:,i], T[i])
         cs[i]  = np.sqrt(kB*T[i]/(mu*mH))
         Pmd[i] = sigma_gas[i]*Omega[i]*cs[i]/np.sqrt(2.0*np.pi)
@@ -126,10 +134,17 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
     
     T0  = (((9*sigma_gas*kB*alpha*Omega)/(8*sb*mu*mH))**(1./3))/10
     Tin = T0
-    T1  = T0*10
+    T1  = T0*100
     f0  = calc_dT(T0, C0, sigma_dust, sigma_evap, sigma_gas)
     f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas) 
     eps = 1e-2
+
+    count = 0
+    while (f0 *f1 >0 and count<20):
+        count += 1
+        T1 *= 10
+        f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas) 
+        
     while (np.abs(T1-T0)>eps):
         TA = (T0 + T1)*0.5
         fA = calc_dT(TA, C0, sigma_dust, sigma_evap, sigma_gas)
@@ -142,7 +157,7 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
             f0 = fA
 
     _, _, kappa = calc_opacity(TA, sigma_dust, sigma_evap, sigma_gas)
-    return (sigma_dust, sigma_evap, TA)
+    return (sigma_dust, sigma_evap, TA, kappa)
 
 @numba.njit
 def calc_dT(T, C0, sigma_dust, sigma_evap, sigma_gas):
@@ -153,7 +168,7 @@ def calc_dT(T, C0, sigma_dust, sigma_evap, sigma_gas):
 @numba.njit
 def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
-    kpa  = 0.5
+    kpa  = 400
     kgas = 1.6e-3
     sigma_dust, sigma_evap = evap_cond_dust(sigma_dust, sigma_evap, T)
     total_dust = sigma_dust.sum(axis=0)
