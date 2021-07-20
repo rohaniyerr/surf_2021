@@ -20,8 +20,6 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
     Ad = np.empty(n)
     Bd = np.empty(n)
     Cd = np.empty(n)
-    
-    x = sigma_d
 
     dr  = dist[1] - dist[0]
     if (abs(np.max(vn)) > 0):
@@ -85,8 +83,6 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
             print('Something blew up')
         
     # return
-    y = sigma_d
-    print(x==y)
     return sigma_d
     
 def solve_Crank_Nicolson(Ao, Bo, Co, S):
