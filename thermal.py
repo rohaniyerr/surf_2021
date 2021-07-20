@@ -24,10 +24,6 @@ def alpha_MRI_hydro(T):
         alpha = 1e-3 + 9e-3*min((T-phase_change)/100, 1.)
     else:
         alpha = 1e-3
-<<<<<<< HEAD
-    
-=======
->>>>>>> 7edb2cd81e5aeefb1eff7ec64b460f26f6f0f595
     return alpha
 
 @numba.njit
@@ -96,13 +92,6 @@ def evap_cond_pebble(sigma_pebble, sigma_evap, temp):
     elif(temp > Tfor):  # 1400 < temp < 1500, forstertite evaporates, calcium and corundum condense
         sigma_pebble[for_idx] =  sigma_pebble[for_idx] * (Tcalc_stop - temp)/(Tcalc_stop - Tfor)
         sigma_evap[for_idx] =  (minit[for_idx] - sigma_pebble[for_idx])
-
-<<<<<<< HEAD
-=======
-#     else: #temp < 1400, everything condenses
-#         sigma_pebble[:] = sigma_pebble[:] + sigma_evap[:]
-#         sigma_evap[:] = 0
->>>>>>> 7edb2cd81e5aeefb1eff7ec64b460f26f6f0f595
     return (sigma_pebble, sigma_evap)
 
 @numba.njit
