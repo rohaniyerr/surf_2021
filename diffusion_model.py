@@ -379,12 +379,8 @@ for i in range(len(t)):
     sigma_dust = calc_evol(sigma_gas, sigma_dust, nu, v_dust, dist, dt)
     sigma_evap = calc_evol(sigma_gas, sigma_evap, nu, v_gas, dist, dt)
     cs2, T, P, sigma_dust, sigma_evap = calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega)
-#     for j in range(len(sigma_gas)):
-#         (tmp1, tmp2) = evap_cond(sigma_dust[j], sigma_evap[j], T[j])
-#         sigma_dust[j] = tmp1
-#         sigma_evap[j] = tmp2
     alphas = update_alpha(alphas, T)
-    nu = update_nu(cs2)
+    nu     = update_nu(cs2)
     calc_stag_grid(T)
     v_dust = calc_dust_vel(v_gas, P)
     v_gas = calc_gas_vel(nu, sigma_gas, dist, dist_stag)

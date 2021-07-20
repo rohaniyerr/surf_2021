@@ -129,7 +129,16 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
     Tin = T0
     T1  = T0*10
     f0  = calc_dT(T0, C0, sigma_dust, sigma_evap, sigma_gas)
-    f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas) 
+    f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas)
+
+    count = 0
+    if (f0*f1 > 0 and count < 10):
+        T1 *= 2.
+        f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas)
+
+        count += 1
+
+    # bisection search
     eps = 1e-2
     while (np.abs(T1-T0)>eps):
         TA = (T0 + T1)*0.5
@@ -154,36 +163,11 @@ def calc_dT(T, C0, sigma_dust, sigma_evap, sigma_gas):
 @numba.njit
 def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
-    kpa  = 0.5
+    kpa  = 400
     kgas = 1.6e-3
     sigma_dust, sigma_evap = evap_cond_dust(sigma_dust, sigma_evap, T)
     total_dust = sigma_dust.sum(axis=0)
     dgratio_in = total_dust/sigma_gas
+    
     return (sigma_dust, sigma_evap, max(kpa*dgratio_in, kgas))
 
-    
-
-
-    
-# @numba.njit
-# def evap_cond(sigma_dust, sigma_evap, temp):
-#     minit = sigma_dust + sigma_evap
-#     cor_idx = 1
-#     calc_idx = 2
-#     fors_idx = 3
-#     if (temp > Tcor): #temp > 1800, everything evaporates
-#         sigma_evap = sigma_evap + sigma_dust
-#         sigma_dust = 0
-#     elif (temp > Tcalc_start): #1700 < temp < 1800, calcium and forsterite evaporate, corundum condenses
-#         sigma_evap[cor_idx,:] = cor_ratio * minit * (temp - Tcalc_start)/(Tcor - Tcalc_start) + (for_ratio + calc_ratio)*minit
-#         sigma_dust = cor_ratio * minit * (Tcor - temp)/(Tcor - Tcalc_start) 
-#     elif(temp > Tcalc_stop):  # 1500 < temp < 1700, forsterite evaporates, corundum condense
-#         sigma_evap = (calc_ratio) * minit * (temp - Tcalc_stop)/(Tcalc_start - Tcalc_stop) + (for_ratio) * minit
-#         sigma_dust = (calc_ratio) * minit * (Tcalc_start - temp)/(Tcalc_start - Tcalc_stop) + (cor_ratio) * minit
-#     elif(temp > Tfor):  # 1400 < temp < 1500, forstertite evaporates, calcium and corundum condense
-#         sigma_evap = (for_ratio) * minit * (temp - Tfor)/(Tcalc_stop - Tfor)
-#         sigma_dust = (for_ratio) * minit * (Tcalc_stop - temp)/(Tcalc_stop - Tfor) + (calc_ratio + cor_ratio)*minit
-#     else: #temp < 1400, everything condenses
-#         sigma_dust = sigma_dust + sigma_evap
-#         sigma_evap = 0
-#     return (sigma_dust, sigma_evap)

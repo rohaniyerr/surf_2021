@@ -59,23 +59,14 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
         Bd[-1] = 0.0
             
         # A(i-1,i)S(i-1,j+1) = S(i,j) ... Cd(i)
+        Cd[0] = 0.
         for i in range(1,n):
             Cd[i] =  dt2/(dr*dr) * 0.5*(nds(nu,dist,sigma,i-1) + nds(nu,dist,sigma,i))/ (sigma[i-1]*dist[i])
 
             if (vn[i]>0):
                 Cd[i] += (dist[i-1]/dist[i]) * vn[i]*dt2/dr
 
-        #print("B", sigma_d[-5:])
-        #print("b", sigma[-5:])
-        #print("Az", Ad[-5:])
-        #print("Bz", Bd[-5:])
-        #print("Cz", Cd[-5:])
         sigma_d = solve_Crank_Nicolson(Ad, Bd, Cd, sigma_d)
-        # repeat for div times
-        #print("A", sigma_d[-5:])
-        #print("a", sigma[-5:])
-        #print(nu[-5:])
-        #print()
 
         if (np.isnan(sigma_d[-1])):
             sys.exit()
@@ -102,6 +93,8 @@ def solve_Crank_Nicolson(Ao, Bo, Co, S):
         Bi[i] =     - Bo[i]*(1-theta)
     for i in range(1,n):
         Ci[i] =     - Co[i]*(1-theta)
+    Bi[-1] = 0.
+    Ci[0]  = 0.
     
     # solve tridiag
     S2 = solve_tridiag(Ai, Bi, Ci, S1)
