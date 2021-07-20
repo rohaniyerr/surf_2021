@@ -55,76 +55,51 @@ from thermal import *
 # In[2]:
 
 
-#Natural Constants
+# Natural Constants
+mu   = 2.2         # mean molar mass in disk
+avog = 6.022142e3  # avogadros number
+mH = 1.673534e-27  # atomic hydrogen mass
+kB = 1.380649e-23  # boltzmann constant
+G  = 6.6738e-11    # gravitational constant
+Ms = 1.9886e30     # solar mass
+Me = 5.972e24      # earth mass
+AU = 1.4959787e11  # astronomical units
+yrs2sec = 3.1536e7 # convert year to seconds
+sb = 5.6704e-8
 
-# T = 600 # Temperature
-mu = 2.2 # mean molar mass in disk
-avog = 6.02214 * 10**23 # avogadros number
-mH = 1.673534 * 10**-27 # atomic hydrogen mass
-kB = 1.380649 * 10**-23 #boltzmann constant
-G = 6.6738 * 10**-11 #gravitational constant
-Ms = 1.9886 * 10**30 #solar mass
-Me = 5.972 * 10 **24 #earth mass
-AU = 1.4959787 * 10**11 #astronomical units
-yrs2sec = 3.1536 * 10**7 #convert years to seconds
-sb = 5.6704*10**-8
+# Disk Parameters
+rin  = 0.05 * AU       # inner radius of the disk
+rout = 30 * AU         # outer radius of the disk
+sigma_in  = 2e5        # initial sigma_gas at 1AU
+sigma_max = sigma_in*2 # initial sigma_gas at r > rcrit
+sigma_min = 1e2
+distance = rout - rin  # distance from inner radius to outer radius
 
-
-# In[3]:
-
-
-#Disk Parameters
-alpha1 = 1e-2
-alpha2 = 1.0 * 10**-3
-alpha3 = 1.0 * 10**-4
-rin = 0.05 * AU #inner radius of the disk
-rout = 30 * AU #outer radius of the disk
-sigma_in  = 2 * 10**5 #boundary condition at t=0
-sigma_max = sigma_in*2 #boundary condition at t=final_time
-sigma_min = 1 * 10**2
-distance = rout - rin #distance from inner radius to outer radius
-
-
-# In[4]:
-
-
-#Temporal discretization
-max_years = 1
+# Temporal discretization
 dyr = .1
-dt = dyr * yrs2sec #timestep
+dt  = dyr * yrs2sec # timestep
+
+max_years  = 1.
 final_time = max_years*yrs2sec + 1 #total diffusion time in seconds
-t_save_interval = 1 #every ten years
+
+t_save_interval = 1
 t_plot = [0,1]
 
 
-# In[5]:
+# Spacial discretization
+n  = 600        # number of steps / number of points to plot
+dr = distance/n # distance between each spacial step
 
 
-#Spacial discretization
+# Pebble Parameters
+St    = .01 #Stokes Number
 
-n = 300 #number of steps / number of points to plot
-dr = distance/n #distance between each spacial step
-cont = True #Boolean for continuous alpha distribution
-
-
-# In[6]:
-
-
-#Other Parameters
-
-St = .01 #Stokes Number
-Tcor = 1800 #10% corundum
-Tcalc = 1700 #10% calcium
-Tfor = 1400 #80% forsterite
-
-cor_ratio = .1
+cor_ratio  = .1
 calc_ratio = .1
-for_ratio = .8
+for_ratio  = .8
 
 phase_change = 1400
 
-
-# In[7]:
 
 
 #Plotting axes
@@ -318,51 +293,10 @@ def save2dir(**alpha_run):
     return (output_dir, filename)
 
 
-# In[19]:
-
-
-# @numba.njit
-# def evaporate(sigma_dust, T):
-#     sigma_evap = np.zeros(n)
-#     for idx, temp in enumerate(T):
-#         if (temp > Tcor): #temp > 1800, everything evaporates
-#             sigma_evap[idx] = sigma_evap[idx] + sigma_dust[idx]
-#             sigma_dust[idx] = 0
-#         elif (temp > Tcalc): #1700 < temp < 1800, calcium and forsterite evaporate
-#             sigma_evap[idx] = sigma_evap[idx] + (calc_ratio + for_ratio) * sigma_dust[idx]*(Tcor-temp)/(Tcor-Tcalc)
-#             sigma_dust[idx] = cor_ratio*sigma_dust[idx]*(Tcor-temp)/(Tcor-Tcalc)
-#         elif(temp > Tfor):  # 1400 < temp < 1700, only forsterite evaporates
-#             sigma_evap[idx] = sigma_evap[idx] + for_ratio * sigma_dust[idx] * (Tcalc-temp)/(Tcalc-Tfor)
-#             sigma_dust[idx] = (calc_ratio + cor_ratio) * sigma_dust[idx] * (Tcalc-temp)/(Tcalc-Tfor)
-#     return sigma_evap 
-
-
-# In[20]:
-
-
-# @numba.njit
-# def condense(sigma_evap, sigma_dust, T):
-#     for idx, temp in enumerate(T):
-#         if (temp <= Tfor): #temp < 1400, everything condenses
-#             sigma_dust[idx] = sigma_dust[idx] + sigma_evap[idx]
-#             sigma_evap[idx] = 0
-#         elif (temp <= Tcalc): # 1400 < temp < 1700, calcium and corundum condense
-#             sigma_dust[idx] = sigma_dust[idx] + (calc_ratio + cor_ratio) * sigma_evap[idx] * (Tcalc-temp)/(Tcalc-Tfor)
-#             sigma_evap[idx] = for_ratio * sigma_evap[idx] * (Tcalc-temp)/(Tcalc-Tfor)
-#         elif (temp <= Tcor): # 1700 < temp < 1800, only corundum condenses
-#             sigma_dust[idx] = sigma_dust[idx] + cor_ratio * sigma_evap[idx] * (Tcor-temp)/(Tcor-Tcalc)
-#             sigma_evap[idx] = (calc_ratio + for_ratio) * sigma_evap[idx] * (Tcor-temp)/(Tcor-Tcalc) 
-#     return sigma_dust
-
-
-# In[21]:
-
 
 def update_nu(cs):
     return alphas*cs2/Omega
 
-
-# In[22]:
 
 
 #Time Evolution Main
@@ -376,14 +310,18 @@ if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 for i in range(len(t)):
     f_new, sigma_gas = calc_gas_evol(f, dt)
-    sigma_dust = calc_evol(sigma_gas, sigma_dust, nu, v_dust, dist, dt)
-    sigma_evap = calc_evol(sigma_gas, sigma_evap, nu, v_gas, dist, dt)
+    for el in range(3):
+        sigma_dust[el,:] = calc_evol(sigma_gas, sigma_dust[el,:], nu, v_dust, dist, dt)
+        sigma_pebble[el,:] = calc_evol(sigma_gas, sigma_pebble[el,:], nu, v_pebble, dist, dt)
+        sigma_evap[el,:] = calc_evol(sigma_gas, sigma_evap[el,:], nu, v_gas, dist, dt)
     cs2, T, P, sigma_dust, sigma_evap = calc_thermal_struc(sigma_gas, sigma_dust, sigma_evap, alphas, Omega)
     alphas = update_alpha(alphas, T)
-    nu     = update_nu(cs2)
-    calc_stag_grid(T)
-    v_dust = calc_dust_vel(v_gas, P)
-    v_gas = calc_gas_vel(nu, sigma_gas, dist, dist_stag)
+    alphas_stag, cs2_stag = update_stag_grid(alphas, cs2)
+    nu = update_nu(cs2, alphas)
+    St = update_St(alphas_stag)
+    v_dust   = calc_dust_vel(St, cs2_stag, v_gas, P)
+    v_pebble = calc_pebble_vel(v_dust)
+    v_gas    = calc_gas_vel(nu, sigma_gas, dist, dist_stag)
     f = f_new
     if (i%(t_save_interval/dyr) == 0):
         output = np.vstack([dist/AU, sigma_gas, sigma_dust, sigma_evap, v_dust, T, P])
