@@ -1,10 +1,12 @@
 import numpy as np
+import numba
 import sys
 
+@numba.njit
 def nds(nu, dist, sigma, i):
     return nu[i]*dist[i]*sigma[i]
 
-
+@numba.njit
 def calc_gas_vel(nu, sigma, dist, dist_stg):
     dr = dist[1] - dist[0]
     vg = np.zeros(len(sigma))
@@ -14,22 +16,25 @@ def calc_gas_vel(nu, sigma, dist, dist_stg):
         vg[i] /= (-dr * (sigma[i]+sigma[i+1])*0.5 )
 
     return vg
-    
+
+@numba.njit
 def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
     n  = len(sigma)
     Ad = np.empty(n)
     Bd = np.empty(n)
     Cd = np.empty(n)
 
+
+    
     dr  = dist[1] - dist[0]
     if (abs(np.max(vn)) > 0):
-        dt1 = abs(dr/np.max(vn))
+        dt1 = abs(dr/np.max(vn))+1
     else:
-        dt1 = dt/2
+        dt1 = dt/3
     
-    div = int(dt/dt1)
-    dt2 = dt/(div+2)
-    if (div > 2):
+    div = int(dt/dt1) + 1
+    dt2 = dt/(div)
+    if (div > 3):
         print(div)
     if(dt2 >= dr**2/nu.all()):
         raise OverflowError('Convergence Criteria Not Met.')
@@ -68,12 +73,13 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
 
         sigma_d = solve_Crank_Nicolson(Ad, Bd, Cd, sigma_d)
 
-        if (np.isnan(sigma_d[-1])):
-            sys.exit()
+        #if (np.isnan(sigma_d[-1])):
+            #sys.exit()
         
     # return
     return sigma_d
-    
+
+@numba.njit
 def solve_Crank_Nicolson(Ao, Bo, Co, S):
     theta = 0.5
     
@@ -98,9 +104,10 @@ def solve_Crank_Nicolson(Ao, Bo, Co, S):
     
     # solve tridiag
     S2 = solve_tridiag(Ai, Bi, Ci, S1)
-
+    
     return S2
 
+@numba.njit
 def solve_tridiag(Ao, Bo, Co, S):
     A = Ao
     B = Bo
