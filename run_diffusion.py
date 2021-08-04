@@ -41,25 +41,11 @@
 # 
 
 # plot feature
-import matplotlib.pyplot as plt
-from   matplotlib import rc
-from   matplotlib.font_manager import FontProperties
-from   matplotlib.ticker       import MultipleLocator, FormatStrFormatter
-import sys
-
-plt.rcParams['font.family']='sans-serif'
-plt.rcParams['axes.linewidth']= 1.0
-plt.rcParams['font.size']     = 14
-plt.rcParams['figure.figsize']= 4*1.418, 4*2
-rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
-rc('text',usetex=True)
-rc('text.latex', preamble=r'\usepackage{sfmath}')
-
 import numpy as np
 import numba
-import pandas as pd
 import os
 import time
+
 from dust_diffuse import *
 from thermal import *
 
@@ -321,57 +307,6 @@ for i in range(len(t)):
         end   = time.time()
         print(end-start)
         start = time.time()
-
-
-
-
-t_plot = [0]
-def plot():
-    fig, ax = plt.subplots(2,1)
-    clr = [(0.7,0,0), (0.9,0.6,0), (0,0.7,0), (0,0.7,0.7), (0.5,0,0.5), (0.3,0.3,0.3)]
-    
-    for idx, time in enumerate(t_plot):
-        df = pd.read_csv('output/disk_' + str(int(time)) + '.txt', delimiter=',', header=None)
-        sigma_gas_plot    = df[1].to_numpy().astype(np.float64)
-        sigma_dustAl_plot = df[2].to_numpy().astype(np.float64)
-        sigma_dustCa_plot = df[3].to_numpy().astype(np.float64)
-        sigma_dustMg_plot = df[4].to_numpy().astype(np.float64)
-        temp_plot         = df[12].to_numpy().astype(np.float64)
-        dg_ratio          = sigma_dustMg_plot/sigma_gas_plot
-        
-        ax[0].semilogy(dist/AU, sigma_gas_plot   , color=clr[idx]) 
-        ax[0].semilogy(dist/AU, sigma_dustMg_plot, color=clr[idx])
-        ax[0].semilogy(dist/AU, sigma_dustAl_plot, color=clr[idx], linestyle="--")
-        ax[0].semilogy(dist/AU, sigma_dustCa_plot, color=clr[idx], linestyle=":")
-        ax[0].set_xlabel('Distance (AU)')
-        ax[0].set_ylabel('Surface Density [kg/m$^3$]')
-
-        ax[1].semilogy(dist/AU, temp_plot, color=clr[idx]) 
-        ax[1].set_xlabel('Distance (AU)')
-        ax[1].set_ylabel('Temperature [K]')
-
-    for i in range(len(ax)):
-        ax[i].set_xlim([0,6]) #30])
-        ax[i].tick_params(direction='in', length=3,   which='major', top=True, right=True)
-        ax[i].tick_params(direction='in', length=1.5, which='minor', top=True, right=True)
-
-    plt.tight_layout()
-    plt.savefig("./snap.pdf")
-
-plot()
-
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
 
 
 
