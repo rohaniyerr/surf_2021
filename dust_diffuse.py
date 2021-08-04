@@ -30,7 +30,7 @@ def calc_evol(sigma, sigma_d, nu, vn, dist, dt):
     if (abs(np.max(vn)) > 0):
         dt1 = abs(dr/np.max(vn))+1
     else:
-        dt1 = dt/3
+        dt1 = dt/2
     
     div = int(dt/dt1) + 1
     dt2 = dt/(div)

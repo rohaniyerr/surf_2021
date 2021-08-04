@@ -19,9 +19,9 @@ for_ratio = .8
 
 @numba.njit
 def alpha_MRI_hydro(T):
-    phase_change = 1400
+    phase_change = 1100
     if(T >= phase_change):
-        alpha = 1e-3 + 9e-3*min((T-phase_change)/100, 1.)
+        alpha = 1e-3 + 9e-3*min((T-phase_change)/300, 1.)
     else:
         alpha = 1e-3
 
@@ -125,14 +125,14 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
     T0  = (((9*sigma_gas*kB*alpha*Omega)/(8*sb*mu*mH))**(1./3))/10
     Tin = T0
     T1  = T0*100
-    f0  = calc_dT(T0, C0, sigma_dust, sigma_evap, sigma_gas)
-    f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas)
+    f0,_,_  = calc_dT(T0, C0, sigma_dust, sigma_evap, sigma_gas)
+    f1,_,_  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas)
     
     # make sure bisection range is correct
     count = 0
     while (f0*f1 > 0 and count < 1000):
         T1 *= 1.5
-        f1  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas)
+        f1,_,_  = calc_dT(T1, C0, sigma_dust, sigma_evap, sigma_gas)
 
         count += 1
 
@@ -140,7 +140,7 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
     eps = 1e-4
     while (np.abs(T1-T0)>eps):
         TA = (T0 + T1)*0.5
-        fA = calc_dT(TA, C0, sigma_dust, sigma_evap, sigma_gas)
+        fA, _, _ = calc_dT(TA, C0, sigma_dust, sigma_evap, sigma_gas)
 
         if (f0*fA < 0):
             T1 = TA
@@ -151,20 +151,30 @@ def calc_middiskT(sigma_gas, sigma_dust, sigma_evap, alpha, Omega):
 
     sigma_dust, sigma_evap, kappa = calc_opacity(TA, sigma_dust, sigma_evap, sigma_gas)
 
-    if (TA>1200 and TA<1500):
-        print(TA, Tin, f0, f1, "\t", sigma_dust, sigma_evap)
+    # if (TA>1200 and TA<1500):
+    #     print(TA, Tin, f0, f1, "\t", sigma_dust, sigma_evap)
+    #     sr = range(1380,1820)
+    #     fs = np.zeros(len(sr))
+    #     for idx, s in enumerate(sr):
+    #         fs[idx], s1, s2 = calc_dT(s, C0, sigma_dust, sigma_evap, sigma_gas)
+    #         print(s,fs[idx], s1, s2)
+    #     print(sigma_dust, sigma_evap)
+        #output = np.vstack([sr, fs])
+        #output = np.transpose(output)
+        #np.savetxt('change_ds.txt', output, delimiter=',', newline='\n')# if you want to save results to file
+                         
     return (sigma_dust, sigma_evap, TA)
 
 @numba.njit
 def calc_dT(T, C0, sigma_dust, sigma_evap, sigma_gas):
-    _, _, kpa = calc_opacity(T, sigma_dust, sigma_evap, sigma_gas)
+    sigma_dust, sigma_evap, kpa = calc_opacity(T, sigma_dust, sigma_evap, sigma_gas)
     kpa = kpa * alpha_MRI_hydro(T)
-    return pow(kpa*C0, 1.0/3) - T
+    return (pow(kpa*C0, 1.0/3) - T, sigma_dust, sigma_evap)
     
 @numba.njit
 def calc_opacity(T, sigma_dust, sigma_evap, sigma_gas):
     # kappa_dust * dgratio * Sigma  = kappa_dust * m_dust 
-    kpa  = 400
+    kpa  = 100
     kgas = 1.6e-3
     sigma_dust, sigma_evap = evap_cond_dust(sigma_dust, sigma_evap, T)
     total_dust = sigma_dust.sum(axis=0)
