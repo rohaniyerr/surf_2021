@@ -1,4 +1,4 @@
-# SURF-2021-Protoplanetary-Disk-Evolution
+## SURF-2021-Protoplanetary-Disk-Evolution
 
 Developed a new astrophysical model of early planetary formations considering streaming instability and pebble accretion theory to predict bulk compositions of terrestrial planets. Implemented this model by numerically solving diffusion-advection equations in Python and adding new parameter spaces to account for magnetorotational instability (MRI). Currently using this model to predict other habitable Earth-like planets and understand the formation of Earth.
 
